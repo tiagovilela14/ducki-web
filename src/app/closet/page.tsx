@@ -45,6 +45,10 @@ export default function ClosetPage() {
         Logout
       </button>
 
+      <a className="border rounded px-3 py-2 inline-block" href="/settings/password">
+        Change password
+    </a>
+
       <div className="mt-6 p-4 border rounded">
         Next: we’ll add “Add Item” + list your items here.
       </div>
