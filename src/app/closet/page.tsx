@@ -14,6 +14,9 @@ export default function ClosetPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<any[]>([]);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
 
   useEffect(() => {
     const load = async () => {
@@ -49,6 +52,29 @@ export default function ClosetPage() {
     router.replace('/login');
   };
 
+  const uploadImage = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', 'ducki_items');
+
+  const res = await fetch(
+    'https://api.cloudinary.com/v1_1/dr3btabmo/image/upload',
+    {
+      method: 'POST',
+      body: formData,
+    }
+  );
+
+  const data = await res.json();
+
+  if (!data.secure_url) {
+    throw new Error('Image upload failed');
+  }
+
+  return data.secure_url;
+};
+
+  
   const createItem = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -63,12 +89,30 @@ export default function ClosetPage() {
       return;
     }
 
+    let imageUrl: string | null = null;
+
+if (imageFile) {
+  setUploading(true);
+  try {
+    imageUrl = await uploadImage(imageFile);
+  } catch (err) {
+    setError('Image upload failed');
+    setSaving(false);
+    setUploading(false);
+    return;
+  }
+  setUploading(false);
+}
+
+
     const { error } = await supabase.from('items').insert({
-      user_id: user.id,
-      name,
-      category,
-      brand: brand || null,
-    });
+  user_id: user.id,
+  name,
+  category,
+  brand: brand || null,
+  image_url: imageUrl,
+});
+
 
     if (error) {
       setError(error.message);
@@ -88,6 +132,7 @@ export default function ClosetPage() {
       setName('');
       setCategory('');
       setBrand('');
+      setImageFile(null);
     }
 
     setSaving(false);
@@ -155,12 +200,23 @@ export default function ClosetPage() {
 
           {error && <p className="text-red-400 text-sm">{error}</p>}
 
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                setImageFile(e.target.files[0]);
+              }
+            }}
+            className="w-full text-sm"
+          />
+
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || uploading}
             className="border rounded px-4 py-2"
           >
-            {saving ? 'Saving…' : 'Add item'}
+            {saving || uploading ? 'Saving…' : 'Add item'}
           </button>
         </form>
 
@@ -180,24 +236,39 @@ export default function ClosetPage() {
           <ul className="space-y-2">
             {items.map((item) => (
               <li
-                key={item.id}
-                className="border rounded px-3 py-2 text-sm flex justify-between items-center"
-              >
-                <div>
-                  <strong>{item.name}</strong>
-                  <div className="opacity-70">
-                    {item.category}
-                    {item.brand && ` · ${item.brand}`}
-                  </div>
-                </div>
+  key={item.id}
+  className="border rounded px-3 py-2 text-sm flex justify-between items-center gap-3"
+>
+  <div className="flex items-center gap-3">
+    {item.image_url ? (
+      <img
+        src={item.image_url}
+        alt={item.name}
+        className="w-14 h-14 rounded object-cover border"
+      />
+    ) : (
+      <div className="w-14 h-14 rounded border flex items-center justify-center text-xs opacity-60">
+        No image
+      </div>
+    )}
 
-                <button
-                  onClick={() => deleteItem(item.id)}
-                  className="text-xs text-red-400 hover:underline"
-                >
-                  Delete
-                </button>
-              </li>
+    <div>
+      <strong>{item.name}</strong>
+      <div className="opacity-70">
+        {item.category}
+        {item.brand && ` · ${item.brand}`}
+      </div>
+    </div>
+  </div>
+
+  <button
+    onClick={() => deleteItem(item.id)}
+    className="text-xs text-red-400 hover:underline"
+  >
+    Delete
+  </button>
+</li>
+
 
             ))}
           </ul>
