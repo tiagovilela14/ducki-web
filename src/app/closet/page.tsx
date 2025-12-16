@@ -16,7 +16,7 @@ export default function ClosetPage() {
   const [items, setItems] = useState<any[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -53,28 +53,28 @@ export default function ClosetPage() {
   };
 
   const uploadImage = async (file: File): Promise<string> => {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('upload_preset', 'ducki_items');
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'ducki_items');
 
-  const res = await fetch(
-    'https://api.cloudinary.com/v1_1/dr3btabmo/image/upload',
-    {
-      method: 'POST',
-      body: formData,
+    const res = await fetch(
+      'https://api.cloudinary.com/v1_1/dr3btabmo/image/upload',
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
+
+    const data = await res.json();
+
+    if (!data.secure_url) {
+      throw new Error('Image upload failed');
     }
-  );
 
-  const data = await res.json();
+    return data.secure_url;
+  };
 
-  if (!data.secure_url) {
-    throw new Error('Image upload failed');
-  }
 
-  return data.secure_url;
-};
-
-  
   const createItem = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -91,27 +91,27 @@ export default function ClosetPage() {
 
     let imageUrl: string | null = null;
 
-if (imageFile) {
-  setUploading(true);
-  try {
-    imageUrl = await uploadImage(imageFile);
-  } catch (err) {
-    setError('Image upload failed');
-    setSaving(false);
-    setUploading(false);
-    return;
-  }
-  setUploading(false);
-}
+    if (imageFile) {
+      setUploading(true);
+      try {
+        imageUrl = await uploadImage(imageFile);
+      } catch (err) {
+        setError('Image upload failed');
+        setSaving(false);
+        setUploading(false);
+        return;
+      }
+      setUploading(false);
+    }
 
 
     const { error } = await supabase.from('items').insert({
-  user_id: user.id,
-  name,
-  category,
-  brand: brand || null,
-  image_url: imageUrl,
-});
+      user_id: user.id,
+      name,
+      category,
+      brand: brand || null,
+      image_url: imageUrl,
+    });
 
 
     if (error) {
@@ -133,6 +133,7 @@ if (imageFile) {
       setCategory('');
       setBrand('');
       setImageFile(null);
+      setImagePreviewUrl(null);
     }
 
     setSaving(false);
@@ -148,6 +149,35 @@ if (imageFile) {
       setItems(items.filter((item) => item.id !== itemId));
     }
   };
+
+  const replaceItemImage = async (itemId: string, file: File) => {
+    setError(null);
+
+    try {
+      setUploading(true);
+      const newUrl = await uploadImage(file);
+      setUploading(false);
+
+      const { error } = await supabase
+        .from('items')
+        .update({ image_url: newUrl })
+        .eq('id', itemId);
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      // Update UI locally (no refetch needed)
+      setItems(
+        items.map((it) => (it.id === itemId ? { ...it, image_url: newUrl } : it))
+      );
+    } catch (e) {
+      setUploading(false);
+      setError('Image replacement failed');
+    }
+  };
+
 
   if (loading) {
     return (
@@ -204,12 +234,28 @@ if (imageFile) {
             type="file"
             accept="image/*"
             onChange={(e) => {
-              if (e.target.files && e.target.files[0]) {
-                setImageFile(e.target.files[0]);
+              const file = e.target.files?.[0] ?? null;
+              setImageFile(file);
+
+              if (file) {
+                const preview = URL.createObjectURL(file);
+                setImagePreviewUrl(preview);
+              } else {
+                setImagePreviewUrl(null);
               }
             }}
+
             className="w-full text-sm"
           />
+
+          {imagePreviewUrl && (
+            <img
+              src={imagePreviewUrl}
+              alt="Preview"
+              className="w-32 h-32 rounded object-cover border"
+            />
+          )}
+
 
           <button
             type="submit"
@@ -236,38 +282,61 @@ if (imageFile) {
           <ul className="space-y-2">
             {items.map((item) => (
               <li
-  key={item.id}
-  className="border rounded px-3 py-2 text-sm flex justify-between items-center gap-3"
->
-  <div className="flex items-center gap-3">
-    {item.image_url ? (
-      <img
-        src={item.image_url}
-        alt={item.name}
-        className="w-14 h-14 rounded object-cover border"
-      />
-    ) : (
-      <div className="w-14 h-14 rounded border flex items-center justify-center text-xs opacity-60">
-        No image
-      </div>
-    )}
+                key={item.id}
+                className="border rounded px-3 py-2 text-sm flex justify-between items-center gap-3"
+              >
+                <div className="flex items-center gap-3">
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="w-14 h-14 rounded object-cover border"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded border flex items-center justify-center text-xs opacity-60">
+                      No image
+                    </div>
+                  )}
 
-    <div>
-      <strong>{item.name}</strong>
-      <div className="opacity-70">
-        {item.category}
-        {item.brand && ` · ${item.brand}`}
-      </div>
-    </div>
-  </div>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <div className="opacity-70">
+                      {item.category}
+                      {item.brand && ` · ${item.brand}`}
+                    </div>
+                  </div>
+                </div>
 
-  <button
-    onClick={() => deleteItem(item.id)}
-    className="text-xs text-red-400 hover:underline"
-  >
-    Delete
-  </button>
-</li>
+                <div className="flex flex-col items-end gap-2">
+                  <input
+                    id={`replace-${item.id}`}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) replaceItemImage(item.id, file);
+                    }}
+                  />
+
+                  <button
+                    onClick={() => document.getElementById(`replace-${item.id}`)?.click()}
+                    className="text-xs underline opacity-80"
+                    type="button"
+                  >
+                    Replace image
+                  </button>
+
+                  <button
+                    onClick={() => deleteItem(item.id)}
+                    className="text-xs text-red-400 hover:underline"
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                </div>
+
+              </li>
 
 
             ))}
