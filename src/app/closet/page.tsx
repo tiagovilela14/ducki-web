@@ -324,7 +324,7 @@ export default function ClosetPage() {
                     className="text-xs underline opacity-80"
                     type="button"
                   >
-                    Replace image
+                    Edit
                   </button>
 
                   <button
