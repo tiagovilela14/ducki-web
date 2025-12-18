@@ -192,6 +192,8 @@ export default function ClosetPage() {
       <h1 className="text-2xl font-semibold">My Closet</h1>
       <p className="opacity-80 text-sm">Logged in as: {email}</p>
 
+      <div className="flex flex-wrap gap-2">
+
       <button className="border rounded px-3 py-2" onClick={logout}>
         Logout
       </button>
@@ -199,6 +201,13 @@ export default function ClosetPage() {
       <a className="border rounded px-3 py-2 inline-block" href="/settings/password">
         Change password
       </a>
+
+      <a className="border rounded px-3 py-2 inline-block" href="/outfits">
+  Outfits
+</a>
+
+</div>
+
 
       <div className="mt-6 space-y-8">
 
@@ -308,20 +317,10 @@ export default function ClosetPage() {
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                  <input
-                    id={`replace-${item.id}`}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) replaceItemImage(item.id, file);
-                    }}
-                  />
 
                   <button
-                    onClick={() => document.getElementById(`replace-${item.id}`)?.click()}
-                    className="text-xs underline opacity-80"
+                    onClick={() => router.push(`/closet/${item.id}/edit`)}
+                    className="text-xs underline opacity-80 whitespace-nowrap"
                     type="button"
                   >
                     Edit
