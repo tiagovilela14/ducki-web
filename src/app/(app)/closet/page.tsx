@@ -46,12 +46,6 @@ export default function ClosetPage() {
     load();
   }, [router]);
 
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-    router.replace('/login');
-  };
-
   const uploadImage = async (file: File): Promise<string> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -194,17 +188,6 @@ export default function ClosetPage() {
 
       <div className="flex flex-wrap gap-2">
 
-      <button className="border rounded px-3 py-2" onClick={logout}>
-        Logout
-      </button>
-
-      <a className="border rounded px-3 py-2 inline-block" href="/settings/password">
-        Change password
-      </a>
-
-      <a className="border rounded px-3 py-2 inline-block" href="/outfits">
-  Outfits
-</a>
 
 </div>
 
