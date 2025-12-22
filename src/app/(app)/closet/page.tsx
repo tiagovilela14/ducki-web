@@ -189,7 +189,7 @@ export default function ClosetPage() {
       <div className="flex flex-wrap gap-2">
 
 
-</div>
+      </div>
 
 
       <div className="mt-6 space-y-8">

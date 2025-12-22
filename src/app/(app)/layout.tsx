@@ -2,10 +2,33 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import { Shirt, Layers, User } from 'lucide-react';
+
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const [avatarUrl, setAvatarUrl] = useState<string>('');
+
+    useEffect(() => {
+        const loadAvatar = async () => {
+            const { data } = await supabase.auth.getUser();
+            const user = data.user;
+            if (!user) return;
+
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('avatar_url')
+                .eq('id', user.id)
+                .single();
+
+            if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
+        };
+
+        loadAvatar();
+    }, []);
+
 
     const nav = [
         { href: '/closet', label: 'Closet', icon: Shirt },
@@ -41,7 +64,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                                     active ? 'border' : 'opacity-80 hover:opacity-100',
                                 ].join(' ')}
                             >
-                                <ActiveIcon className="w-5 h-5" />
+                                {item.href === '/profile' && avatarUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                        src={avatarUrl}
+                                        alt="Profile"
+                                        className="w-5 h-5 rounded-full object-cover"
+                                    />
+                                ) : (
+                                    <ActiveIcon className="w-5 h-5" />
+                                )}
+
                                 <span className="text-sm font-medium">{item.label}</span>
                             </Link>
                         );
@@ -75,7 +108,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                                 ].join(' ')}
 
                             >
-                                <ActiveIcon className="w-5 h-5" />
+                                {item.href === '/profile' && avatarUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                        src={avatarUrl}
+                                        alt="Profile"
+                                        className="w-6 h-6 rounded-full object-cover"
+                                    />
+                                ) : (
+                                    <ActiveIcon className="w-6 h-6" />
+                                )}
+
                                 <span className="text-[11px]">{item.label}</span>
                             </Link>
                         );
