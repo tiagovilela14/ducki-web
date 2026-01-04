@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { CATEGORY_OPTIONS, type CategoryOption } from "@/lib/categories";
 
 type Item = {
   id: string;
@@ -27,7 +28,7 @@ export default function EditItemPage() {
 
   // form fields
   const [name, setName] = useState('');
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState<CategoryOption | "">("");
   const [brand, setBrand] = useState('');
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
@@ -79,7 +80,11 @@ export default function EditItemPage() {
       setItem(loaded);
 
       setName(loaded.name);
-      setCategory(loaded.category);
+      const normalizedCategory = CATEGORY_OPTIONS.includes(loaded.category as CategoryOption)
+        ? (loaded.category as CategoryOption)
+        : "";
+
+      setCategory(normalizedCategory);
       setBrand(loaded.brand ?? '');
       setImageUrl(loaded.image_url);
 
@@ -199,13 +204,21 @@ export default function EditItemPage() {
           required
         />
 
-        <input
+        <label className="block text-sm font-medium mb-1">Category</label>
+        <select
           className="w-full border rounded px-3 py-2 bg-transparent"
-          placeholder="Category"
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={(e) => setCategory(e.target.value as CategoryOption)}
           required
-        />
+        >
+          <option value="">Select a category</option>
+          {CATEGORY_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+
 
         <input
           className="w-full border rounded px-3 py-2 bg-transparent"

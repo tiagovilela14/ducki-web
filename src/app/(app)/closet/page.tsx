@@ -1,5 +1,6 @@
 'use client';
 
+import { CATEGORY_OPTIONS, type CategoryOption } from '@/lib/categories';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
@@ -9,7 +10,8 @@ export default function ClosetPage() {
   const [email, setEmail] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
-  const [category, setCategory] = useState('');
+  const [categorySelect, setCategorySelect] = useState<CategoryOption>('Tops');
+  const [categoryOther, setCategoryOther] = useState('');
   const [brand, setBrand] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +19,11 @@ export default function ClosetPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("All");
+  const [brandFilter, setBrandFilter] = useState<string>("All");
+  const [sort, setSort] = useState<"newest" | "oldest">("newest");
+
 
   useEffect(() => {
     const load = async () => {
@@ -32,7 +39,7 @@ export default function ClosetPage() {
 
       const { data: itemsData, error } = await supabase
         .from('items')
-        .select('*')
+        .select("id, user_id, name, category, brand, image_url, created_at")
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -102,7 +109,7 @@ export default function ClosetPage() {
     const { error } = await supabase.from('items').insert({
       user_id: user.id,
       name,
-      category,
+      category: categorySelect === 'Other' ? categoryOther : categorySelect,
       brand: brand || null,
       image_url: imageUrl,
     });
@@ -114,7 +121,7 @@ export default function ClosetPage() {
       // Re-fetch items after successful insert
       const { data: itemsData } = await supabase
         .from('items')
-        .select('*')
+        .select("id, user_id, name, category, brand, image_url, created_at")
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -124,7 +131,8 @@ export default function ClosetPage() {
 
       // Reset form
       setName('');
-      setCategory('');
+      setCategorySelect('Tops');
+      setCategoryOther('');
       setBrand('');
       setImageFile(null);
       setImagePreviewUrl(null);
@@ -172,6 +180,42 @@ export default function ClosetPage() {
     }
   };
 
+  // ---------- Closet usability (search / filter / sort) ----------
+  const categories = [
+    "All",
+    ...Array.from(new Set(items.map((i) => i.category).filter(Boolean))),
+  ].sort();
+
+  const brands = [
+    "All",
+    ...Array.from(
+      new Set(items.map((i) => (i.brand ?? "").trim()).filter(Boolean))
+    ),
+  ].sort();
+
+  const visibleItems = items
+    .filter((i) => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch = q === "" || (i.name ?? "").toLowerCase().includes(q);
+
+      const matchesCategory =
+        categoryFilter === "All" || i.category === categoryFilter;
+
+      const itemBrand = (i.brand ?? "").trim();
+      const matchesBrand = brandFilter === "All" || itemBrand === brandFilter;
+
+      return matchesSearch && matchesCategory && matchesBrand;
+    })
+    .slice()
+    .sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+
+      if (!aTime || !bTime) return 0;
+      return sort === "newest" ? bTime - aTime : aTime - bTime;
+    });
+
+
 
   if (loading) {
     return (
@@ -205,13 +249,32 @@ export default function ClosetPage() {
             required
           />
 
-          <input
-            className="w-full border rounded px-3 py-2 bg-transparent"
-            placeholder="Category (e.g. Jacket, Shoes)"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            required
-          />
+          <div className="space-y-2">
+            <label className="text-sm opacity-80">Category</label>
+
+            <select
+              className="w-full border rounded px-3 py-2 bg-transparent"
+              value={categorySelect}
+              onChange={(e) => setCategorySelect(e.target.value as CategoryOption)}
+            >
+              {CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+
+            {categorySelect === 'Other' && (
+              <input
+                className="w-full border rounded px-3 py-2 bg-transparent"
+                placeholder="Type your category (e.g. Suit, Jewelry...)"
+                value={categoryOther}
+                onChange={(e) => setCategoryOther(e.target.value)}
+                required
+              />
+            )}
+          </div>
+
 
           <input
             className="w-full border rounded px-3 py-2 bg-transparent"
@@ -260,8 +323,83 @@ export default function ClosetPage() {
 
         <div className="mt-10 space-y-3">
           <h2 className="text-lg font-semibold">
-            My items ({items.length})
+            My items ({visibleItems.length} / {items.length})
           </h2>
+
+          <div className="flex flex-col gap-3 border rounded p-4">
+            <div className="text-sm opacity-80">Find and organize</div>
+
+            <input
+              className="w-full border rounded px-3 py-2 bg-transparent"
+              placeholder="Search by name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Category</label>
+                <select
+                  className="w-full border rounded px-3 py-2 bg-transparent"
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Brand</label>
+                <select
+                  className="w-full border rounded px-3 py-2 bg-transparent"
+                  value={brandFilter}
+                  onChange={(e) => setBrandFilter(e.target.value)}
+                >
+                  {brands.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Sort</label>
+                <select
+                  className="w-full border rounded px-3 py-2 bg-transparent"
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as "newest" | "oldest")}
+                >
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-sm opacity-80">
+              <div>
+                Showing <span className="font-semibold">{visibleItems.length}</span>{" "}
+                item(s)
+              </div>
+              <button
+                type="button"
+                className="border rounded px-3 py-1"
+                onClick={() => {
+                  setSearch("");
+                  setCategoryFilter("All");
+                  setBrandFilter("All");
+                  setSort("newest");
+                }}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
 
 
           {items.length === 0 && (
@@ -272,7 +410,7 @@ export default function ClosetPage() {
 
 
           <ul className="space-y-2">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <li
                 key={item.id}
                 className="border rounded px-3 py-2 text-sm flex justify-between items-center gap-3"
