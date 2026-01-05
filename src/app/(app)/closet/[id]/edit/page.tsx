@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { CATEGORY_OPTIONS, type CategoryOption } from "@/lib/categories";
+import ImageLightbox from "@/components/ImageLightbox";
 
 type Item = {
   id: string;
@@ -35,6 +36,7 @@ export default function EditItemPage() {
   // image picker + preview
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const uploadImage = async (file: File): Promise<string> => {
     const formData = new FormData();
@@ -177,9 +179,19 @@ export default function EditItemPage() {
 
       <div className="border rounded p-4 flex items-center gap-4">
         {imagePreviewUrl ? (
-          <img src={imagePreviewUrl} alt="Preview" className="w-20 h-20 rounded object-cover border" />
+          <img
+            src={imagePreviewUrl}
+            alt="Preview"
+            className="w-20 h-20 rounded object-cover border cursor-pointer hover:opacity-80"
+            onClick={() => setLightboxImage(imagePreviewUrl)}
+          />
         ) : imageUrl ? (
-          <img src={imageUrl} alt={name} className="w-20 h-20 rounded object-cover border" />
+          <img
+            src={imageUrl}
+            alt={name}
+            className="w-20 h-20 rounded object-cover border cursor-pointer hover:opacity-80"
+            onClick={() => setLightboxImage(imageUrl)}
+          />
         ) : (
           <div className="w-20 h-20 rounded border flex items-center justify-center text-xs opacity-60">
             No image
@@ -267,6 +279,14 @@ export default function EditItemPage() {
           </button>
         </div>
       </form>
+
+      {lightboxImage && (
+        <ImageLightbox
+          src={lightboxImage}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
+
     </main>
   );
 }

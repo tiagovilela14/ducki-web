@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import ImageLightbox from "@/components/ImageLightbox";
+
 
 type Item = {
   id: string;
@@ -33,6 +35,7 @@ export default function OutfitDetailPage() {
   const [allItems, setAllItems] = useState<Item[]>([]);
   const [outfitItemIds, setOutfitItemIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const outfitItems = useMemo(
     () => allItems.filter((i) => outfitItemIds.has(i.id)),
@@ -224,7 +227,12 @@ export default function OutfitDetailPage() {
               <li key={item.id} className="border rounded px-3 py-2 flex justify-between items-center gap-3">
                 <div className="flex items-center gap-3">
                   {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded object-cover border" />
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="w-12 h-12 rounded object-cover border cursor-pointer hover:opacity-80"
+                      onClick={() => setLightboxImage(item.image_url)}
+                    />
                   ) : (
                     <div className="w-12 h-12 rounded border flex items-center justify-center text-xs opacity-60">
                       No image
@@ -264,7 +272,13 @@ export default function OutfitDetailPage() {
               <li key={item.id} className="border rounded px-3 py-2 flex justify-between items-center gap-3">
                 <div className="flex items-center gap-3">
                   {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded object-cover border" />
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="w-12 h-12 rounded object-cover border cursor-pointer hover:opacity-80"
+                      onClick={() => setLightboxImage(item.image_url)}
+                    />
+
                   ) : (
                     <div className="w-12 h-12 rounded border flex items-center justify-center text-xs opacity-60">
                       No image
@@ -292,6 +306,14 @@ export default function OutfitDetailPage() {
           </ul>
         </section>
       </div>
+
+      {lightboxImage && (
+        <ImageLightbox
+          src={lightboxImage}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
+
     </main>
   );
 }

@@ -4,6 +4,8 @@ import { CATEGORY_OPTIONS, type CategoryOption } from '@/lib/categories';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import ImageLightbox from "@/components/ImageLightbox";
+
 
 export default function ClosetPage() {
   const router = useRouter();
@@ -23,6 +25,7 @@ export default function ClosetPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [brandFilter, setBrandFilter] = useState<string>("All");
   const [sort, setSort] = useState<"newest" | "oldest">("newest");
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -307,7 +310,8 @@ export default function ClosetPage() {
             <img
               src={imagePreviewUrl}
               alt="Preview"
-              className="w-32 h-32 rounded object-cover border"
+              className="w-32 h-32 rounded object-cover border cursor-pointer hover:opacity-80"
+              onClick={() => setLightboxImage(imagePreviewUrl)}
             />
           )}
 
@@ -420,7 +424,8 @@ export default function ClosetPage() {
                     <img
                       src={item.image_url}
                       alt={item.name}
-                      className="w-14 h-14 rounded object-cover border"
+                      className="w-14 h-14 rounded object-cover border cursor-pointer hover:opacity-80"
+                      onClick={() => setLightboxImage(item.image_url)}
                     />
                   ) : (
                     <div className="w-14 h-14 rounded border flex items-center justify-center text-xs opacity-60">
@@ -463,6 +468,13 @@ export default function ClosetPage() {
           </ul>
         </div>
       </div>
+
+      {lightboxImage && (
+        <ImageLightbox
+          src={lightboxImage}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
 
     </main>
   );
