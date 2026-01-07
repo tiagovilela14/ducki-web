@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import ImageLightbox from "@/components/ImageLightbox";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
 
 type Item = {
@@ -20,6 +21,7 @@ type Outfit = {
   user_id: string;
   name: string;
   created_at: string;
+  cover_image_url: string | null;
 };
 
 export default function OutfitDetailPage() {
@@ -36,6 +38,9 @@ export default function OutfitDetailPage() {
   const [outfitItemIds, setOutfitItemIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
+
 
   const outfitItems = useMemo(
     () => allItems.filter((i) => outfitItemIds.has(i.id)),
@@ -62,7 +67,7 @@ export default function OutfitDetailPage() {
       // 1) load outfit (must belong to user)
       const { data: outfitData, error: outfitError } = await supabase
         .from('outfits')
-        .select('*')
+        .select("id, user_id, name, created_at, cover_image_url")
         .eq('id', outfitId)
         .eq('user_id', user.id)
         .single();
@@ -74,6 +79,7 @@ export default function OutfitDetailPage() {
       }
 
       setOutfit(outfitData as Outfit);
+      setCoverImageUrl((outfitData as any).cover_image_url ?? null);
 
       // 2) load all items (user items)
       const { data: itemsData, error: itemsError } = await supabase
@@ -110,6 +116,34 @@ export default function OutfitDetailPage() {
 
     load();
   }, [outfitId, router]);
+
+  const uploadCoverPhoto = async (file: File) => {
+    setError(null);
+    setCoverUploading(true);
+
+    try {
+      const url = await uploadToCloudinary(file, "ducki_items");
+
+      const { error: updateError } = await supabase
+        .from("outfits")
+        .update({ cover_image_url: url })
+        .eq("id", outfitId);
+
+      if (updateError) {
+        setError(updateError.message);
+        setCoverUploading(false);
+        return;
+      }
+
+      setCoverImageUrl(url);
+      setOutfit((prev) => (prev ? { ...prev, cover_image_url: url } : prev));
+      setCoverUploading(false);
+    } catch {
+      setError("Cover photo upload failed.");
+      setCoverUploading(false);
+    }
+  };
+
 
   const addToOutfit = async (itemId: string) => {
     setSaving(true);
@@ -213,6 +247,45 @@ export default function OutfitDetailPage() {
       </div>
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
+
+      <div className="border rounded p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm font-semibold">Outfit photo</div>
+
+          <label className="border rounded px-3 py-2 text-sm cursor-pointer">
+            {coverUploading ? "Uploading…" : coverImageUrl ? "Change photo" : "Upload photo"}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadCoverPhoto(file);
+                e.currentTarget.value = "";
+              }}
+              disabled={coverUploading}
+            />
+          </label>
+        </div>
+
+        {coverImageUrl ? (
+          <img
+            src={coverImageUrl}
+            alt="Outfit cover"
+            className="w-full rounded border object-contain bg-black/30 cursor-pointer hover:opacity-90 aspect-[4/5]"
+            onClick={() => setLightboxImage(coverImageUrl)}
+          />
+        ) : (
+          <div className="w-full rounded border flex items-center justify-center text-sm opacity-60 aspect-[4/5]">
+            No outfit photo yet
+          </div>
+        )}
+
+        <div className="text-xs opacity-60">
+          Tip: upload a mirror pic or flat-lay. This becomes the outfit’s “cover”.
+        </div>
+      </div>
+
 
       <div className="grid md:grid-cols-2 gap-6">
         <section className="border rounded p-4 space-y-3">

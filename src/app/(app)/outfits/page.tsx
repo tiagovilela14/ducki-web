@@ -9,6 +9,7 @@ type Outfit = {
   user_id: string;
   name: string;
   created_at: string;
+  cover_image_url: string | null;
 };
 
 export default function OutfitsPage() {
@@ -35,7 +36,7 @@ export default function OutfitsPage() {
 
       const { data: outfitsData, error } = await supabase
         .from('outfits')
-        .select('*')
+        .select("id, user_id, name, created_at, cover_image_url")
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -126,10 +127,26 @@ export default function OutfitsPage() {
 
         <ul className="space-y-2">
           {outfits.map((o) => (
-            <li key={o.id} className="border rounded px-3 py-2 flex justify-between items-center">
-              <div>
-                <div className="font-semibold">{o.name}</div>
-                <div className="text-xs opacity-60">{new Date(o.created_at).toLocaleString()}</div>
+            <li key={o.id} className="border rounded p-3 flex justify-between items-center gap-3">
+              <div className="flex items-center gap-3">
+                {o.cover_image_url ? (
+                  <img
+                    src={o.cover_image_url}
+                    alt={o.name}
+                    className="w-14 h-14 rounded border object-cover"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded border flex items-center justify-center text-[10px] opacity-60">
+                    No photo
+                  </div>
+                )}
+
+                <div>
+                  <div className="font-semibold">{o.name}</div>
+                  <div className="text-xs opacity-60">
+                    {new Date(o.created_at).toLocaleString()}
+                  </div>
+                </div>
               </div>
 
               <button
