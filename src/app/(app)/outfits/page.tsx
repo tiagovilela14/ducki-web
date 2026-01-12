@@ -127,27 +127,31 @@ export default function OutfitsPage() {
 
         <ul className="space-y-2">
           {outfits.map((o) => (
-            <li key={o.id} className="border rounded p-3 flex justify-between items-center gap-3">
-              <div className="flex items-center gap-3">
-                {o.cover_image_url ? (
-                  <img
-                    src={o.cover_image_url}
-                    alt={o.name}
-                    className="w-14 h-14 rounded border object-cover"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded border flex items-center justify-center text-[10px] opacity-60">
-                    No photo
-                  </div>
-                )}
+            <li
+              key={o.id}
+              className="border rounded p-3 flex justify-between items-center gap-3 min-h-[84px]"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                {/* Thumbnail slot (always same size to keep alignment) */}
+                <div className="w-14 h-14 flex-shrink-0">
+                  {o.cover_image_url ? (
+                    <img
+                      src={o.cover_image_url}
+                      alt={o.name}
+                      className="w-14 h-14 rounded border object-cover"
+                    />
+                  ) : null}
+                </div>
 
-                <div>
-                  <div className="font-semibold">{o.name}</div>
+                {/* Text (always next to thumbnail area) */}
+                <div className="min-w-0">
+                  <div className="font-semibold truncate">{o.name}</div>
                   <div className="text-xs opacity-60">
                     {new Date(o.created_at).toLocaleString()}
                   </div>
                 </div>
               </div>
+
 
               <button
                 className="text-sm underline"

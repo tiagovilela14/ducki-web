@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import ImageLightbox from "@/components/ImageLightbox";
@@ -24,6 +24,16 @@ type Outfit = {
   cover_image_url: string | null;
 };
 
+type OutfitMedia = {
+  id: string;
+  outfit_id: string;
+  user_id: string;
+  media_url: string;
+  media_type: "image" | "video";
+  position: number;
+  created_at: string;
+};
+
 export default function OutfitDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -33,6 +43,10 @@ export default function OutfitDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [outfit, setOutfit] = useState<Outfit | null>(null);
+  const [media, setMedia] = useState<OutfitMedia[]>([]);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
+
 
   const [allItems, setAllItems] = useState<Item[]>([]);
   const [outfitItemIds, setOutfitItemIds] = useState<Set<string>>(new Set());
@@ -56,13 +70,14 @@ export default function OutfitDetailPage() {
     const load = async () => {
       setError(null);
 
-      const { data: authData } = await supabase.auth.getUser();
+      const { data: authData, error: authError } = await supabase.auth.getUser();
       const user = authData.user;
 
-      if (!user) {
+      if (authError || !user) {
         router.replace('/login');
         return;
       }
+
 
       // 1) load outfit (must belong to user)
       const { data: outfitData, error: outfitError } = await supabase
@@ -108,6 +123,29 @@ export default function OutfitDetailPage() {
         return;
       }
 
+      // 1.5) load outfit media
+      const { data: mediaData, error: mediaError } = await supabase
+        .from("outfit_media")
+        .select("id, outfit_id, user_id, media_url, media_type, position, created_at")
+        .eq("outfit_id", outfitId)
+        .eq("user_id", user.id)
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (mediaError) {
+        setError(mediaError.message);
+        setLoading(false);
+        return;
+      }
+
+      setMedia((mediaData ?? []) as OutfitMedia[]);
+      setActiveMediaIndex(0);
+
+      // If you want: use first media as cover fallback (optional)
+      if (!coverImageUrl && (mediaData?.[0]?.media_url ?? null)) {
+        setCoverImageUrl(mediaData![0].media_url);
+      }
+
       const ids = new Set<string>((joinData ?? []).map((r: any) => r.item_id as string));
       setOutfitItemIds(ids);
 
@@ -122,27 +160,58 @@ export default function OutfitDetailPage() {
     setCoverUploading(true);
 
     try {
-      const url = await uploadToCloudinary(file, "ducki_items");
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData.user;
 
-      const { error: updateError } = await supabase
-        .from("outfits")
-        .update({ cover_image_url: url })
-        .eq("id", outfitId);
-
-      if (updateError) {
-        setError(updateError.message);
+      if (!user) {
+        setError("Not authenticated.");
         setCoverUploading(false);
         return;
       }
 
-      setCoverImageUrl(url);
-      setOutfit((prev) => (prev ? { ...prev, cover_image_url: url } : prev));
+      const uploaded = await uploadToCloudinary(file, "ducki_items");
+
+      const mediaType =
+        uploaded.resourceType === "video" || file.type.startsWith("video/")
+          ? "video"
+          : "image";
+
+      const url = uploaded.url;
+
+
+      // position: append to the end
+      const nextPos = media.length;
+
+      const { data: inserted, error: insertError } = await supabase
+        .from("outfit_media")
+        .insert({
+          outfit_id: outfitId,
+          user_id: user.id,
+          media_url: url,
+          media_type: mediaType,
+          position: nextPos,
+        })
+        .select("id, outfit_id, user_id, media_url, media_type, position, created_at")
+        .single();
+
+      if (insertError || !inserted) {
+        setError(insertError?.message ?? "Failed to save media.");
+        setCoverUploading(false);
+        return;
+      }
+
+      setMedia((prev) => [...prev, inserted as any]);
+
+      // keep your existing coverImageUrl in sync (first time)
+      if (!coverImageUrl) setCoverImageUrl(url);
+
       setCoverUploading(false);
     } catch {
       setError("Cover photo upload failed.");
       setCoverUploading(false);
     }
   };
+
 
 
   const addToOutfit = async (itemId: string) => {
@@ -227,8 +296,9 @@ export default function OutfitDetailPage() {
   }
 
   return (
-    <main className="min-h-screen p-6 space-y-6 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between gap-3">
+    <main className="min-h-screen space-y-6">
+      <div className="flex items-center justify-between gap-3 px-6 pt-6">
+
         <div>
           <h1 className="text-2xl font-semibold">{outfit.name}</h1>
           <p className="text-sm opacity-70">
@@ -241,53 +311,169 @@ export default function OutfitDetailPage() {
             Back
           </button>
           <button className="border rounded px-3 py-2 text-red-400" onClick={deleteOutfit} disabled={saving}>
-            Delete outfit
+            Delete
           </button>
         </div>
       </div>
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && <p className="text-red-400 text-sm px-6">{error}</p>}
 
-      <div className="border rounded p-4 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-semibold">Outfit photo</div>
+      {/* IG-style: full-width media + attached item strip */}
+      <div className="-mx-4 md:mx-0">
 
-          <label className="border rounded px-3 py-2 text-sm cursor-pointer">
-            {coverUploading ? "Uploading…" : coverImageUrl ? "Change photo" : "Upload photo"}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) uploadCoverPhoto(file);
-                e.currentTarget.value = "";
-              }}
-              disabled={coverUploading}
-            />
-          </label>
+
+        {/* Media area */}
+        {/* Media area (carousel) */}
+        <div className="relative w-full">
+          {media.length > 0 ? (
+            <div className="relative">
+              <div
+                ref={carouselRef}
+                className="flex w-full overflow-x-auto snap-x snap-mandatory scroll-smooth"
+                onScroll={() => {
+                  const el = carouselRef.current;
+                  if (!el) return;
+
+                  const w = el.clientWidth || 1;
+                  const idx = Math.round(el.scrollLeft / w);
+                  setActiveMediaIndex(idx);
+                }}
+              >
+                {media.map((m, idx) => (
+                  <div
+                    key={m.id}
+                    className="w-full flex-shrink-0 snap-center"
+                  >
+
+                    {m.media_type === "video" ? (
+                      <video
+                        src={m.media_url.replace("/upload/", "/upload/f_mp4/")}
+                        className="w-full h-[60vh] object-cover bg-black/40"
+                        controls
+                        playsInline
+                      />
+                    ) : (
+                      <img
+                        src={m.media_url}
+                        alt={`Outfit media ${idx + 1}`}
+                        className="w-full h-[60vh] object-cover bg-black/40 cursor-pointer"
+                        onClick={() => setLightboxImage(m.media_url)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Dots */}
+              <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-black/50 backdrop-blur border border-white/10">
+                  {media.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      aria-label={`Go to media ${i + 1}`}
+                      className={[
+                        "h-2.5 w-2.5 rounded-full border border-white/70",
+                        i === activeMediaIndex ? "bg-white shadow" : "bg-white/20",
+                      ].join(" ")}
+                      onClick={() => {
+                        const el = carouselRef.current;
+                        if (!el) return;
+                        el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+                        setActiveMediaIndex(i);
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+
+              {/* Upload button overlay */}
+              <div className="absolute top-3 right-3">
+                <label className="border rounded px-3 py-2 text-sm cursor-pointer bg-black/40 backdrop-blur">
+                  {coverUploading ? "Uploading…" : "Add photo"}
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) uploadCoverPhoto(file);
+                      e.currentTarget.value = "";
+                    }}
+                    disabled={coverUploading}
+                  />
+                </label>
+              </div>
+            </div>
+          ) : (
+            // Empty state (no "No photo" box)
+            <div className="w-full bg-black/30 flex items-center justify-center py-10">
+              <div className="text-center space-y-3">
+                <div className="text-sm font-semibold">Add an outfit photo</div>
+                <div className="text-xs opacity-70">Mirror pic or flat-lay works great ✨</div>
+
+                <label className="inline-flex border rounded px-3 py-2 text-sm cursor-pointer">
+                  {coverUploading ? "Uploading…" : "Upload photo"}
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) uploadCoverPhoto(file);
+                      e.currentTarget.value = "";
+                    }}
+                    disabled={coverUploading}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
         </div>
 
-        {coverImageUrl ? (
-          <img
-            src={coverImageUrl}
-            alt="Outfit cover"
-            className="w-full rounded border object-contain bg-black/30 cursor-pointer hover:opacity-90 aspect-[4/5]"
-            onClick={() => setLightboxImage(coverImageUrl)}
-          />
-        ) : (
-          <div className="w-full rounded border flex items-center justify-center text-sm opacity-60 aspect-[4/5]">
-            No outfit photo yet
+
+        {/* Attached item strip */}
+        {outfitItems.length > 0 && (
+          <div className="border-t border-b md:border md:rounded-b-xl px-3 py-3 bg-black/20">
+            <div className="text-xs uppercase tracking-wide opacity-60 mb-2">
+              Items in this outfit
+            </div>
+
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {outfitItems.map((it) => (
+                <div
+                  key={it.id}
+                  className="min-w-[140px] border rounded-lg p-2 flex items-center gap-2"
+                >
+                  {it.image_url ? (
+                    <img
+                      src={it.image_url}
+                      alt={it.name}
+                      className="w-10 h-10 rounded object-cover border cursor-pointer hover:opacity-80"
+                      onClick={() => setLightboxImage(it.image_url)}
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded border flex items-center justify-center text-[10px] opacity-60">
+                      No img
+                    </div>
+                  )}
+
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate">{it.name}</div>
+                    <div className="text-xs opacity-70 truncate">
+                      {it.brand ?? it.category}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-
-        <div className="text-xs opacity-60">
-          Tip: upload a mirror pic or flat-lay. This becomes the outfit’s “cover”.
-        </div>
       </div>
 
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-6 px-6 pb-6">
         <section className="border rounded p-4 space-y-3">
           <h2 className="text-lg font-semibold">Items in this outfit ({outfitItems.length})</h2>
 

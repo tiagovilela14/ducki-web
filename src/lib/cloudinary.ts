@@ -3,12 +3,16 @@ export async function uploadToCloudinary(file: File, uploadPreset: string) {
   formData.append("file", file);
   formData.append("upload_preset", uploadPreset);
 
-  const res = await fetch("https://api.cloudinary.com/v1_1/dr3btabmo/image/upload", {
+  const res = await fetch("https://api.cloudinary.com/v1_1/dr3btabmo/auto/upload", {
     method: "POST",
     body: formData,
   });
 
   const data = await res.json();
-  if (!data.secure_url) throw new Error("Image upload failed");
-  return data.secure_url as string;
+  if (!data.secure_url) throw new Error("Upload failed");
+
+  return {
+    url: data.secure_url as string,
+    resourceType: (data.resource_type as "image" | "video" | "raw") ?? "image",
+  };
 }
