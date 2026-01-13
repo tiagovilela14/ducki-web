@@ -10,6 +10,26 @@ type Outfit = {
   name: string;
   created_at: string;
   cover_image_url: string | null;
+  // derived from outfit_media (first item)
+  thumb_url?: string | null;
+  thumb_type?: "image" | "video" | null;
+};
+
+const getThumbFromMedia = (url: string, type: "image" | "video") => {
+  if (type === "image") return url;
+
+  // Cloudinary: create a jpg thumbnail from the first frame
+  // Example:
+  // https://res.cloudinary.com/<cloud>/video/upload/<publicId>.mp4
+  // -> https://res.cloudinary.com/<cloud>/video/upload/so_0/<publicId>.jpg
+  if (url.includes("/video/upload/")) {
+    return url
+      .replace("/video/upload/", "/video/upload/so_0/")
+      .replace(/\.(mp4|mov|webm|m4v)(\?.*)?$/i, ".jpg$2");
+  }
+
+  // fallback: no thumb
+  return null;
 };
 
 export default function OutfitsPage() {
@@ -35,12 +55,68 @@ export default function OutfitsPage() {
       setEmail(user.email ?? '');
 
       const { data: outfitsData, error } = await supabase
-        .from('outfits')
+        .from("outfits")
         .select("id, user_id, name, created_at, cover_image_url")
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-      if (!error && outfitsData) setOutfits(outfitsData as Outfit[]);
+      if (error || !outfitsData) {
+        setLoading(false);
+        return;
+      }
+
+      const baseOutfits = outfitsData as Outfit[];
+
+      // Fetch all media for these outfits (we’ll pick the first by position)
+      const outfitIds = baseOutfits.map((o) => o.id);
+
+      const { data: mediaData, error: mediaError } = await supabase
+        .from("outfit_media")
+        .select("outfit_id, media_url, media_type, position")
+        .in("outfit_id", outfitIds)
+        .order("position", { ascending: true });
+
+      if (mediaError) {
+        // still show outfits even if media fails
+        setOutfits(baseOutfits);
+        setLoading(false);
+        return;
+      }
+
+      // Build map: first media per outfit
+      const firstMediaByOutfit = new Map<string, { url: string; type: "image" | "video" }>();
+
+      for (const row of mediaData ?? []) {
+        const outfit_id = (row as any).outfit_id as string;
+        const media_url = (row as any).media_url as string;
+        const media_type = (row as any).media_type as "image" | "video";
+
+        if (!firstMediaByOutfit.has(outfit_id)) {
+          firstMediaByOutfit.set(outfit_id, { url: media_url, type: media_type });
+        }
+      }
+
+      // Merge into outfits
+      const enriched = baseOutfits.map((o) => {
+        const first = firstMediaByOutfit.get(o.id);
+
+        // priority:
+        // 1) cover_image_url (legacy)
+        // 2) first outfit_media
+        if (o.cover_image_url) {
+          return { ...o, thumb_url: o.cover_image_url, thumb_type: "image" as const };
+        }
+
+        if (first) {
+          const thumb = getThumbFromMedia(first.url, first.type);
+          return { ...o, thumb_url: thumb, thumb_type: first.type };
+        }
+
+        return { ...o, thumb_url: null, thumb_type: null };
+      });
+
+      setOutfits(enriched);
+
       setLoading(false);
     };
 
@@ -134,9 +210,9 @@ export default function OutfitsPage() {
               <div className="flex items-center gap-3 min-w-0">
                 {/* Thumbnail slot (always same size to keep alignment) */}
                 <div className="w-14 h-14 flex-shrink-0">
-                  {o.cover_image_url ? (
+                  {o.thumb_url ? (
                     <img
-                      src={o.cover_image_url}
+                      src={o.thumb_url}
                       alt={o.name}
                       className="w-14 h-14 rounded border object-cover"
                     />
