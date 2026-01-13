@@ -444,14 +444,18 @@ export default function OutfitDetailPage() {
               {outfitItems.map((it) => (
                 <div
                   key={it.id}
-                  className="min-w-[140px] border rounded-lg p-2 flex items-center gap-2"
+                  className="min-w-[140px] border rounded-lg p-2 flex items-center gap-2 cursor-pointer hover:bg-white/5"
+                  onClick={() => router.push(`/outfits/${outfitId}/items/${it.id}`)}
                 >
                   {it.image_url ? (
                     <img
                       src={it.image_url}
                       alt={it.name}
                       className="w-10 h-10 rounded object-cover border cursor-pointer hover:opacity-80"
-                      onClick={() => setLightboxImage(it.image_url)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (it.image_url) setLightboxImage(it.image_url);
+                      }}
                     />
                   ) : (
                     <div className="w-10 h-10 rounded border flex items-center justify-center text-[10px] opacity-60">
@@ -473,52 +477,7 @@ export default function OutfitDetailPage() {
       </div>
 
 
-      <div className="grid md:grid-cols-2 gap-6 px-6 pb-6">
-        <section className="border rounded p-4 space-y-3">
-          <h2 className="text-lg font-semibold">Items in this outfit ({outfitItems.length})</h2>
-
-          {outfitItems.length === 0 && (
-            <p className="text-sm opacity-70">No items yet. Add from the right panel 👉</p>
-          )}
-
-          <ul className="space-y-2">
-            {outfitItems.map((item) => (
-              <li key={item.id} className="border rounded px-3 py-2 flex justify-between items-center gap-3">
-                <div className="flex items-center gap-3">
-                  {item.image_url ? (
-                    <img
-                      src={item.image_url}
-                      alt={item.name}
-                      className="w-12 h-12 rounded object-cover border cursor-pointer hover:opacity-80"
-                      onClick={() => setLightboxImage(item.image_url)}
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded border flex items-center justify-center text-xs opacity-60">
-                      No image
-                    </div>
-                  )}
-                  <div className="text-sm">
-                    <div className="font-semibold">{item.name}</div>
-                    <div className="opacity-70">
-                      {item.category}
-                      {item.brand && ` · ${item.brand}`}
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  className="text-xs text-red-400 hover:underline whitespace-nowrap"
-                  onClick={() => removeFromOutfit(item.id)}
-                  disabled={saving}
-                  type="button"
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-
+      <div className="px-6 pb-6">
         <section className="border rounded p-4 space-y-3">
           <h2 className="text-lg font-semibold">Add items ({availableItems.length})</h2>
 
@@ -537,12 +496,12 @@ export default function OutfitDetailPage() {
                       className="w-12 h-12 rounded object-cover border cursor-pointer hover:opacity-80"
                       onClick={() => setLightboxImage(item.image_url)}
                     />
-
                   ) : (
                     <div className="w-12 h-12 rounded border flex items-center justify-center text-xs opacity-60">
                       No image
                     </div>
                   )}
+
                   <div className="text-sm">
                     <div className="font-semibold">{item.name}</div>
                     <div className="opacity-70">
@@ -565,6 +524,7 @@ export default function OutfitDetailPage() {
           </ul>
         </section>
       </div>
+
 
       {lightboxImage && (
         <ImageLightbox
