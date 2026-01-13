@@ -87,12 +87,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </aside>
 
             {/* Main content */}
-            <main className="flex-1 p-4 pb-20 md:pb-4">
+            <main className="flex-1 p-4 md:pb-4" style={{ paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}>
                 {children}
             </main>
 
+
             {/* Mobile bottom nav */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-white/10 bg-black/80 text-white backdrop-blur">
+            <nav
+                className="md:hidden sticky bottom-0 left-0 right-0 border-t border-white/10 bg-black/80 text-white backdrop-blur"
+                style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+            >
+
                 <div className="max-w-lg mx-auto flex justify-around px-2 py-2">
                     {nav.map((item) => {
                         const ActiveIcon = item.icon;
