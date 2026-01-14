@@ -402,7 +402,7 @@ export default function OutfitDetailPage() {
 
               {/* IG-style attached item strip OVERLAY */}
               {outfitItems.length > 0 && (
-                <div className="absolute left-3 right-3 bottom-12 z-20 pointer-events-none">
+                <div className="absolute left-3 right-3 bottom-10 z-20 pointer-events-none">
                   {/* gradient for readability */}
                   <div className="px-3 pb-4">
                     <div className="flex gap-3 overflow-x-auto pb-1 pr-16 pointer-events-auto">
