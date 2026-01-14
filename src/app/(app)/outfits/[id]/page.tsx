@@ -322,8 +322,7 @@ export default function OutfitDetailPage() {
       <div className="-mx-4 md:mx-0">
 
 
-        {/* Media area */}
-        {/* Media area (carousel) */}
+        {/* Media area (carousel) + IG-style attached strip overlay */}
         <div className="relative w-full">
           {media.length > 0 ? (
             <div className="relative">
@@ -340,15 +339,11 @@ export default function OutfitDetailPage() {
                 }}
               >
                 {media.map((m, idx) => (
-                  <div
-                    key={m.id}
-                    className="w-full flex-shrink-0 snap-center"
-                  >
-
+                  <div key={m.id} className="w-full flex-shrink-0 snap-center">
                     {m.media_type === "video" ? (
                       <video
                         src={m.media_url.replace("/upload/", "/upload/f_mp4/")}
-                        className="w-full h-[60vh] object-cover bg-black/40"
+                        className="w-full h-[48vh] md:h-[60vh] object-cover bg-black/40"
                         controls
                         playsInline
                       />
@@ -356,7 +351,7 @@ export default function OutfitDetailPage() {
                       <img
                         src={m.media_url}
                         alt={`Outfit media ${idx + 1}`}
-                        className="w-full h-[60vh] object-cover bg-black/40 cursor-pointer"
+                        className="w-full h-[48vh] md:h-[60vh] object-cover bg-black/40 cursor-pointer"
                         onClick={() => setLightboxImage(m.media_url)}
                       />
                     )}
@@ -365,16 +360,16 @@ export default function OutfitDetailPage() {
               </div>
 
               {/* Dots */}
-              <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center">
-                <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-black/50 backdrop-blur border border-white/10">
+              <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center z-30">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-black/60 backdrop-blur border border-white/15">
                   {media.map((_, i) => (
                     <button
                       key={i}
                       type="button"
                       aria-label={`Go to media ${i + 1}`}
                       className={[
-                        "h-2.5 w-2.5 rounded-full border border-white/70",
-                        i === activeMediaIndex ? "bg-white shadow" : "bg-white/20",
+                        "h-2.5 w-2.5 rounded-full border border-white/80",
+                        i === activeMediaIndex ? "bg-white shadow" : "bg-white/25",
                       ].join(" ")}
                       onClick={() => {
                         const el = carouselRef.current;
@@ -387,9 +382,8 @@ export default function OutfitDetailPage() {
                 </div>
               </div>
 
-
               {/* Upload button overlay */}
-              <div className="absolute top-3 right-3">
+              <div className="absolute top-3 right-3 z-40">
                 <label className="border rounded px-3 py-2 text-sm cursor-pointer bg-black/40 backdrop-blur">
                   {coverUploading ? "Uploading…" : "Add photo"}
                   <input
@@ -405,6 +399,47 @@ export default function OutfitDetailPage() {
                   />
                 </label>
               </div>
+
+              {/* IG-style attached item strip OVERLAY */}
+              {outfitItems.length > 0 && (
+                <div className="absolute left-3 right-3 bottom-12 z-20 pointer-events-none">
+                  {/* gradient for readability */}
+                  <div className="px-3 pb-4">
+                    <div className="flex gap-3 overflow-x-auto pb-1 pr-16 pointer-events-auto">
+                      {outfitItems.map((it) => (
+                        <div
+                          key={it.id}
+                          className="min-w-[220px] border rounded-xl p-3 flex items-center gap-3 bg-black/35 backdrop-blur cursor-pointer hover:bg-white/5"
+                          onClick={() => router.push(`/outfits/${outfitId}/items/${it.id}`)}
+                        >
+                          {it.image_url ? (
+                            <img
+                              src={it.image_url}
+                              alt={it.name}
+                              className="w-14 h-14 rounded-lg object-cover border cursor-pointer hover:opacity-80"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (it.image_url) setLightboxImage(it.image_url);
+                              }}
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg border flex items-center justify-center text-[10px] opacity-60">
+                              No img
+                            </div>
+                          )}
+
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold truncate">{it.name}</div>
+                            <div className="text-xs opacity-80 truncate">
+                              {it.brand ?? it.category}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             // Empty state (no "No photo" box)
@@ -432,48 +467,6 @@ export default function OutfitDetailPage() {
           )}
         </div>
 
-
-        {/* Attached item strip */}
-        {outfitItems.length > 0 && (
-          <div className="border-t border-b md:border md:rounded-b-xl px-3 py-3 bg-black/20">
-            <div className="text-xs uppercase tracking-wide opacity-60 mb-2">
-              Items in this outfit
-            </div>
-
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {outfitItems.map((it) => (
-                <div
-                  key={it.id}
-                  className="min-w-[140px] border rounded-lg p-2 flex items-center gap-2 cursor-pointer hover:bg-white/5"
-                  onClick={() => router.push(`/outfits/${outfitId}/items/${it.id}`)}
-                >
-                  {it.image_url ? (
-                    <img
-                      src={it.image_url}
-                      alt={it.name}
-                      className="w-10 h-10 rounded object-cover border cursor-pointer hover:opacity-80"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (it.image_url) setLightboxImage(it.image_url);
-                      }}
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded border flex items-center justify-center text-[10px] opacity-60">
-                      No img
-                    </div>
-                  )}
-
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">{it.name}</div>
-                    <div className="text-xs opacity-70 truncate">
-                      {it.brand ?? it.category}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
 
